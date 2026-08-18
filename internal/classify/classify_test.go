@@ -1,10 +1,17 @@
 package classify_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/lacsar712/hookrelay/internal/classify"
 )
+
+type timeoutErr struct{}
+
+func (timeoutErr) Error() string   { return "deadline exceeded" }
+func (timeoutErr) Timeout() bool   { return true }
+func (timeoutErr) Temporary() bool { return true }
 
 func TestHTTPStatus(t *testing.T) {
 	cases := []struct {
@@ -37,5 +44,12 @@ func TestHTTPStatus429IsRetryable(t *testing.T) {
 func TestHTTPStatus202IsSuccess(t *testing.T) {
 	if classify.HTTPStatus(202) != classify.Success {
 		t.Fatalf("202: got %s want success", classify.HTTPStatus(202))
+	}
+}
+
+func TestNetErrorTimeoutUnwraps(t *testing.T) {
+	err := fmt.Errorf("outbound post: %w", timeoutErr{})
+	if got := classify.NetError(err); got != classify.Retryable {
+		t.Fatalf("wrapped timeout: got %s want retryable", got)
 	}
 }

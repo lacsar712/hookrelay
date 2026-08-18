@@ -30,6 +30,17 @@ func TestOpensAfterThresholdAndRecovers(t *testing.T) {
 	}
 }
 
+func TestSuccessClearsFailureCount(t *testing.T) {
+	clk := clock.NewFrozen(time.Unix(0, 0))
+	b := circuit.New(clk, circuit.Settings{FailThreshold: 2, OpenFor: time.Hour, Probes: 1})
+	b.Failure()
+	b.Success()
+	b.Failure()
+	if !b.Allow().Allow || b.Allow().State != circuit.Closed {
+		t.Fatal("a failure after success must not open the breaker")
+	}
+}
+
 func TestHalfOpenFailureReopens(t *testing.T) {
 	clk := clock.NewFrozen(time.Unix(0, 0))
 	b := circuit.New(clk, circuit.Settings{FailThreshold: 1, OpenFor: time.Second, Probes: 1})

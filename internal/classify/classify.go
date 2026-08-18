@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"strings"
 	"syscall"
 )
 
@@ -73,22 +72,7 @@ func NetError(err error) Kind {
 		errors.Is(err, os.ErrDeadlineExceeded) {
 		return Retryable
 	}
-	msg := strings.ToLower(err.Error())
-	switch {
-	case strings.Contains(msg, "timeout"):
-		return Retryable
-	case strings.Contains(msg, "connection refused"):
-		return Retryable
-	case strings.Contains(msg, "connection reset"):
-		return Retryable
-	case strings.Contains(msg, "tls"):
-		return Retryable
-	case strings.Contains(msg, "no such host"):
-		return Retryable
-	case strings.Contains(msg, "eof"):
-		return Retryable
-	}
-	return Retryable
+	return Terminal
 }
 
 func Combine(status int, err error) Kind {

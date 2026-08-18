@@ -31,3 +31,15 @@ func TestFromJournalUsesOriginalBody(t *testing.T) {
 		t.Fatal("replay used masked payload")
 	}
 }
+
+func TestFromJournalRejectsEmptyBody(t *testing.T) {
+	_, err := replay.FromJournal(journal.Entry{
+		EventID:       "evt1",
+		DeliveryID:    "dlv-empty",
+		DestinationID: "dst1",
+		Type:          "order.paid",
+	}, time.Unix(1, 0))
+	if err == nil {
+		t.Fatal("empty journal body must not become a replay job")
+	}
+}

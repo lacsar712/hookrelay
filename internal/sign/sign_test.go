@@ -73,3 +73,20 @@ func TestVerifySkewUnwraps(t *testing.T) {
 		t.Fatalf("want ErrSkew, got %v", err)
 	}
 }
+
+func TestVerifyEmptySecretsNoPanic(t *testing.T) {
+	clk := clock.NewFrozen(time.Unix(1_700_000_000, 0))
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("empty secrets panicked: %v", r)
+		}
+	}()
+	err := sign.Verify(clk, 5*time.Minute, nil, sign.Headers{
+		Timestamp: clk.Now().Unix(),
+		Nonce:     "abcdefghijklmnop",
+		Signature: "v1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}, []byte(`{}`))
+	if err == nil {
+		t.Fatal("expected error for empty secrets")
+	}
+}

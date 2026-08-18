@@ -1,6 +1,8 @@
 package event_test
 
 import (
+	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/lacsar712/hookrelay/internal/event"
@@ -46,5 +48,16 @@ func TestMatchPrefixSegmentBoundary(t *testing.T) {
 		if got != tc.want {
 			t.Fatalf("MatchPrefix(%q, %q)=%v want %v", tc.eventType, tc.prefix, got, tc.want)
 		}
+	}
+}
+
+func TestParseWrapsSyntaxError(t *testing.T) {
+	_, err := event.Parse([]byte(`{`))
+	if err == nil {
+		t.Fatal("expected syntax error")
+	}
+	var syn *json.SyntaxError
+	if !errors.As(err, &syn) {
+		t.Fatalf("want json.SyntaxError via errors.As, got %v", err)
 	}
 }

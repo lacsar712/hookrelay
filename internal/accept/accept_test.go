@@ -185,3 +185,68 @@ func TestPipelineIdempotencyConflict(t *testing.T) {
 		t.Fatalf("code %d want 409", code2)
 	}
 }
+
+func TestPipelineUnknownSourceKeyUnauthorized(t *testing.T) {
+	clk := clock.NewFrozen(time.Unix(1_700_000_000, 0))
+	p := newPipeline(t, clk)
+	body := []byte(`{"type":"order.paid","payload":{"id":1}}`)
+	h := signedHeaders(t, body, "unknownsrc16char", "idem-unknown-01", clk.Now().Unix())
+	h.Set(headers.SourceKey, "no-such-key")
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("unknown source key panicked: %v", r)
+		}
+	}()
+	_, code, err := p.Handle(h, body)
+	if err == nil {
+		t.Fatal("expected unauthorized")
+	}
+	if code != http.StatusUnauthorized {
+		t.Fatalf("code %d want 401", code)
+	}
+}
+
+func TestPipelineInvalidJSONIsBadRequest(t *testing.T) {
+	clk := clock.NewFrozen(time.Unix(1_700_000_000, 0))
+	p := newPipeline(t, clk)
+	body := []byte(`{`)
+	_, code, err := p.Handle(signedHeaders(t, body, "jsonnonce16chars", "idem-json-01", clk.Now().Unix()), body)
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+	if code != http.StatusBadRequest {
+		t.Fatalf("broken json want 400, got %d", code)
+	}
+}
+
+func TestPipelineMissingPayloadUnprocessable(t *testing.T) {
+	clk := clock.NewFrozen(time.Unix(1_700_000_000, 0))
+	p := newPipeline(t, clk)
+	body := []byte(`{"type":"order.paid"}`)
+	_, code, err := p.Handle(signedHeaders(t, body, "paylnonce16chars", "idem-payload-01", clk.Now().Unix()), body)
+	if err == nil {
+		t.Fatal("expected payload error")
+	}
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("missing payload want 422, got %d", code)
+	}
+}
+
+func TestPipelineDuplicateNonceConflict(t *testing.T) {
+	clk := clock.NewFrozen(time.Unix(1_700_000_000, 0))
+	p := newPipeline(t, clk)
+	body := []byte(`{"type":"order.paid","payload":{"id":1}}`)
+	ts := clk.Now().Unix()
+	n := "dupnonce16charsx"
+	_, code1, err := p.Handle(signedHeaders(t, body, n, "idem-nonce-a", ts), body)
+	if err != nil || code1 != http.StatusAccepted {
+		t.Fatalf("first: code=%d err=%v", code1, err)
+	}
+	_, code2, err := p.Handle(signedHeaders(t, body, n, "idem-nonce-b", ts), body)
+	if err == nil {
+		t.Fatal("expected nonce conflict")
+	}
+	if code2 != http.StatusConflict {
+		t.Fatalf("duplicate nonce want 409, got %d", code2)
+	}
+}

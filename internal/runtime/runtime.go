@@ -9,11 +9,12 @@ import (
 )
 
 type Gates struct {
-	mu       sync.Mutex
-	clk      clock.Clock
-	breakers map[string]*circuit.Breaker
-	buckets  map[string]*ratelimit.Bucket
-	rates    map[string]rateSpec
+	mu         sync.Mutex
+	clk        clock.Clock
+	breakerCfg circuit.Settings
+	breakers   map[string]*circuit.Breaker
+	buckets    map[string]*ratelimit.Bucket
+	rates      map[string]rateSpec
 }
 
 type rateSpec struct {
@@ -22,11 +23,16 @@ type rateSpec struct {
 }
 
 func NewGates(clk clock.Clock) *Gates {
+	return NewGatesWithCircuit(clk, circuit.DefaultSettings())
+}
+
+func NewGatesWithCircuit(clk clock.Clock, cfg circuit.Settings) *Gates {
 	return &Gates{
-		clk:      clk,
-		breakers: make(map[string]*circuit.Breaker),
-		buckets:  make(map[string]*ratelimit.Bucket),
-		rates:    make(map[string]rateSpec),
+		clk:        clk,
+		breakerCfg: cfg,
+		breakers:   make(map[string]*circuit.Breaker),
+		buckets:    make(map[string]*ratelimit.Bucket),
+		rates:      make(map[string]rateSpec),
 	}
 }
 
@@ -34,7 +40,7 @@ func (g *Gates) Ensure(id string, rate float64, burst int) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if _, ok := g.breakers[id]; !ok {
-		g.breakers[id] = circuit.New(g.clk, circuit.DefaultSettings())
+		g.breakers[id] = circuit.New(g.clk, g.breakerCfg)
 	}
 	spec := rateSpec{rate: rate, burst: burst}
 	old, exists := g.rates[id]
@@ -49,7 +55,7 @@ func (g *Gates) Breaker(id string) *circuit.Breaker {
 	defer g.mu.Unlock()
 	b, ok := g.breakers[id]
 	if !ok {
-		b = circuit.New(g.clk, circuit.DefaultSettings())
+		b = circuit.New(g.clk, g.breakerCfg)
 		g.breakers[id] = b
 	}
 	return b
@@ -91,7 +97,7 @@ func (g *Gates) Restore(s Snapshot) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	for id, snap := range s.Breakers {
-		b := circuit.New(g.clk, circuit.DefaultSettings())
+		b := circuit.New(g.clk, g.breakerCfg)
 		b.Restore(snap)
 		g.breakers[id] = b
 	}
