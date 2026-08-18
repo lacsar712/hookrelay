@@ -35,8 +35,29 @@ func New(clk clock.Clock, ratePerSec float64, burst int) *Bucket {
 	}
 }
 
+// Take reserves a token for immediate delivery. It returns 0 when a token is
+// available (the caller may proceed) and the time to wait when the bucket is
+// empty, in which case no token is consumed and the caller must defer.
 func (b *Bucket) Take() (wait time.Duration) {
-	return 0
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	now := b.clk.Now()
+	if now.After(b.lastTime) {
+		elapsed := now.Sub(b.lastTime).Seconds()
+		if elapsed > 0 {
+			b.tokens += elapsed * b.rate
+			if b.tokens > b.burst {
+				b.tokens = b.burst
+			}
+		}
+		b.lastTime = now
+	}
+	if b.tokens >= 1 {
+		b.tokens -= 1
+		return 0
+	}
+	needed := 1 - b.tokens
+	return time.Duration(needed / b.rate * float64(time.Second))
 }
 
 type Snapshot struct {
