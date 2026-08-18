@@ -1,11 +1,18 @@
 package nonce
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/lacsar712/hookrelay/internal/clock"
 )
+
+// ErrReused is returned when a nonce has already been accepted within its
+// replay window. Reuse within the window is a replay attack and must be
+// rejected rather than reprocessed.
+var ErrReused = errors.New("nonce reused within replay window")
 
 type Record struct {
 	Nonce     string    `json:"nonce"`
@@ -31,7 +38,24 @@ func New(clk clock.Clock, window time.Duration) *Book {
 	}
 }
 
+// CheckAndRemember rejects a nonce that has already been accepted within its
+// replay window and otherwise records it so a later reuse is caught. The nonce
+// is remembered only after the caller has validated the signature binding it,
+// so a replay of a legitimately signed request is detected even when the
+// caller varies the idempotency key.
 func (b *Book) CheckAndRemember(nonce string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.gcLocked()
+	now := b.clk.Now()
+	if rec, ok := b.entries[nonce]; ok && rec.ExpiresAt.After(now) {
+		return fmt.Errorf("%w: nonce=%s", ErrReused, nonce)
+	}
+	b.entries[nonce] = Record{
+		Nonce:     nonce,
+		SeenAt:    now,
+		ExpiresAt: now.Add(b.window),
+	}
 	return nil
 }
 
