@@ -96,6 +96,16 @@ func (b *Breaker) Allow() Decision {
 }
 
 func (b *Breaker) Success() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	switch b.state {
+	case Closed:
+		b.failures = 0
+	case HalfOpen:
+		b.state = Closed
+		b.failures = 0
+		b.probesLeft = 0
+	}
 }
 
 func (b *Breaker) Failure() {
