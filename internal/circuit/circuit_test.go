@@ -29,3 +29,21 @@ func TestOpensAfterThresholdAndRecovers(t *testing.T) {
 		t.Fatal("expected closed after probe success")
 	}
 }
+
+func TestHalfOpenFailureReopens(t *testing.T) {
+	clk := clock.NewFrozen(time.Unix(0, 0))
+	b := circuit.New(clk, circuit.Settings{FailThreshold: 1, OpenFor: time.Second, Probes: 1})
+	b.Failure()
+	if b.Allow().Allow {
+		t.Fatal("should be open")
+	}
+	clk.Advance(time.Second)
+	d := b.Allow()
+	if !d.Allow || d.State != circuit.HalfOpen {
+		t.Fatalf("expected half-open probe, got %+v", d)
+	}
+	b.Failure()
+	if b.Allow().Allow {
+		t.Fatal("failed probe must open the breaker again")
+	}
+}

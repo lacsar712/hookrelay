@@ -1,6 +1,7 @@
 package sign_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -51,5 +52,24 @@ func TestVerifyRejectsSkewAndWrongSecret(t *testing.T) {
 	}, body)
 	if err == nil {
 		t.Fatal("expected mismatch")
+	}
+}
+
+func TestVerifySkewUnwraps(t *testing.T) {
+	clk := clock.NewFrozen(time.Unix(1_700_000_000, 0))
+	body := []byte(`{}`)
+	nonce := "abcdefghijklmnop"
+	sig, err := sign.Sign("supersecret", clk.Now().Unix(), nonce, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clk.Advance(10 * time.Minute)
+	err = sign.Verify(clk, 5*time.Minute, []string{"supersecret"}, sign.Headers{
+		Timestamp: 1_700_000_000,
+		Nonce:     nonce,
+		Signature: sig,
+	}, body)
+	if !errors.Is(err, sign.ErrSkew) {
+		t.Fatalf("want ErrSkew, got %v", err)
 	}
 }

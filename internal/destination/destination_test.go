@@ -2,7 +2,9 @@ package destination_test
 
 import (
 	"testing"
+	"time"
 
+	"github.com/lacsar712/hookrelay/internal/clock"
 	"github.com/lacsar712/hookrelay/internal/destination"
 )
 
@@ -41,5 +43,28 @@ func TestMatchesDisabledNeverFires(t *testing.T) {
 	}
 	if d.Matches("order.paid") {
 		t.Fatal("disabled destination must not match")
+	}
+}
+
+func TestRegistryMatchingSkipsDisabled(t *testing.T) {
+	clk := clock.NewFrozen(time.Unix(0, 0))
+	reg := destination.NewRegistry(clk)
+	off := false
+	d, err := reg.Create(destination.CreateInput{
+		Name:         "off",
+		URL:          "http://127.0.0.1:8080/api/v1/loopback",
+		Secret:       "abcdefgh",
+		TypePrefixes: []string{"order"},
+		Enabled:      &off,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Enabled {
+		t.Fatal("expected disabled")
+	}
+	got := reg.Matching("order.paid")
+	if len(got) != 0 {
+		t.Fatalf("disabled dest leaked into matching: %+v", got)
 	}
 }

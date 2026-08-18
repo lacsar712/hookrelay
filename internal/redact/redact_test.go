@@ -17,3 +17,11 @@ func TestJSONMasksSecrets(t *testing.T) {
 		t.Fatalf("non-sensitive field missing: %s", out)
 	}
 }
+
+func TestJSONMasksNestedToken(t *testing.T) {
+	in := []byte(`{"payload":{"nested":{"token":"abc"}}}`)
+	out := redact.JSON(in)
+	if bytes.Contains(out, []byte("abc")) {
+		t.Fatalf("nested token leaked: %s", out)
+	}
+}

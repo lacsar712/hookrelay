@@ -27,3 +27,15 @@ func TestHTTPStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestHTTPStatus429IsRetryable(t *testing.T) {
+	if classify.HTTPStatus(429) != classify.Retryable {
+		t.Fatalf("429: got %s want retryable", classify.HTTPStatus(429))
+	}
+}
+
+func TestHTTPStatus202IsSuccess(t *testing.T) {
+	if classify.HTTPStatus(202) != classify.Success {
+		t.Fatalf("202: got %s want success", classify.HTTPStatus(202))
+	}
+}

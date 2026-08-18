@@ -1,6 +1,7 @@
 package accept
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -54,6 +55,9 @@ func (p *Pipeline) Handle(h http.Header, body []byte) (Result, int, error) {
 		Nonce:     in.Nonce,
 		Signature: in.Signature,
 	}, body); err != nil {
+		if errors.Is(err, sign.ErrSkew) {
+			return Result{}, http.StatusBadRequest, err
+		}
 		return Result{}, http.StatusUnauthorized, err
 	}
 	env, err := event.Parse(body)
