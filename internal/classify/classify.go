@@ -1,7 +1,9 @@
 package classify
 
 import (
+	"context"
 	"errors"
+	"net"
 	"os"
 	"syscall"
 )
@@ -54,7 +56,16 @@ func NetError(err error) Kind {
 	if errors.Is(err, syscall.ECONNREFUSED) ||
 		errors.Is(err, syscall.ECONNRESET) ||
 		errors.Is(err, syscall.EPIPE) ||
-		errors.Is(err, os.ErrDeadlineExceeded) {
+		errors.Is(err, os.ErrDeadlineExceeded) ||
+		errors.Is(err, context.DeadlineExceeded) {
+		return Retryable
+	}
+	// Anything satisfying net.Error whose Timeout() reports true is a
+	// transient deadline (http.Client timeout, custom timeout errors
+	// wrapped along the outbound chain). Inspect the method rather than a
+	// sentinel so wrapped timeouts survive fmt.Errorf("...: %w", ...).
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
 		return Retryable
 	}
 	return Terminal
