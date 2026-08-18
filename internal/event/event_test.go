@@ -24,3 +24,27 @@ func TestParseAndPrefix(t *testing.T) {
 		t.Fatal("uppercase type should fail")
 	}
 }
+
+func TestMatchPrefixSegmentBoundary(t *testing.T) {
+	cases := []struct {
+		eventType string
+		prefix    string
+		want      bool
+	}{
+		{"order.paid", "order", true},
+		{"order.paid", "order.", true},
+		{"order.paid", "order.paid", true},
+		{"order.paid", "", true},
+		{"order.paid", "or", false},
+		{"order.paid", "ord", false},
+		{"order.paid", "order.p", false},
+		{"order.paid", "charge", false},
+		{"orders.paid", "order", false},
+	}
+	for _, tc := range cases {
+		got := event.MatchPrefix(tc.eventType, tc.prefix)
+		if got != tc.want {
+			t.Fatalf("MatchPrefix(%q, %q)=%v want %v", tc.eventType, tc.prefix, got, tc.want)
+		}
+	}
+}
