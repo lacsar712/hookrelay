@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HookRelay</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>HookRelay</h1>
+    <p class="sub">signed ingress · outbound delivery · retry / circuit / DLQ</p>
+    <div id="status" class="status">connecting…</div>
+  </header>
+  <main>
+    <section>
+      <h2>Destinations</h2>
+      <form id="dest-form">
+        <input name="name" placeholder="name" required />
+        <input name="url" placeholder="https://example.com/hook" required />
+        <input name="secret" placeholder="outbound secret" required minlength="8" />
+        <input name="type_prefixes" placeholder="prefixes, e.g. order." />
+        <button type="submit">Add</button>
+      </form>
+      <div id="destinations"></div>
+    </section>
+    <section>
+      <h2>Send event</h2>
+      <p class="hint">Uses ingest secret <code>dev-ingest-secret</code> and HMAC-SHA256 headers.</p>
+      <form id="event-form">
+        <input name="type" value="order.paid" required />
+        <textarea name="payload" rows="6">{ "order_id": "A-1001", "amount": 42 }</textarea>
+        <button type="submit">Send</button>
+      </form>
+      <pre id="event-result"></pre>
+    </section>
+    <section>
+      <h2>Journal</h2>
+      <button type="button" id="refresh">Refresh</button>
+      <div id="journal"></div>
+    </section>
+    <section>
+      <h2>Dead letter</h2>
+      <div id="dlq"></div>
+    </section>
+    <section>
+      <h2>Loopback received</h2>
+      <div id="loop"></div>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
